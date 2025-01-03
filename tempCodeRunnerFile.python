@@ -1,0 +1,83 @@
+import json
+import openai
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+def load_text_file(file_path):
+    """Load content from a text file."""
+    with open('test.txt', "r") as file:
+        content = file.read()
+    return content
+
+# Step 2: Use OpenAI's LLM to extract data
+def extract_data_with_llm(content, extraction_goal):
+    """Extract data using OpenAI's LLM."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise ValueError("OpenAI API key is not set. Please check your .env file.")
+    
+    openai.api_key = api_key
+    
+    # Define the prompt
+    prompt = (
+        f"You are a data extraction assistant. Extract the following information in JSON format: {extraction_goal}. "
+        f"Here is the text:\n\n{content}"
+    )
+
+    # Query the OpenAI API
+    response = openai.ChatCompletion.create(
+        model="gpt-4.o",  # Use "gpt-3.5-turbo" if "gpt-4" is unavailable
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant for text analysis."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.0  # Use lower temperature for consistent results
+    )
+    
+    # Parse the response
+    extracted_data = response['choices'][0]['message']['content']
+    return extracted_data
+
+# Step 3: Save extracted data as JSON
+def save_to_json(data, output_path):
+    """Save extracted data to a JSON file."""
+    with open('result.json', "w") as file:
+        json.dump(data, file, indent=4)
+
+# Main function to orchestrate the steps
+if __name__ == "__main__":
+    # Specify the input file path
+    file_path = r'test.txt'
+    
+    # Load the text content from the file
+    content = load_text_file(file_path)
+    
+    # Define the extraction goal
+    extraction_goal = (
+        "Extract a list of Indian states and union territories along with their capitals. "
+        "The output should be in JSON format, where each state is represented as follows: "
+        "{ 'state': 'Capital' }."
+    )
+    
+    # Extract the data using OpenAI's LLM
+    extracted_data = extract_data_with_llm(content, extraction_goal)
+    
+    # Parse the extracted data as JSON
+    try:
+        parsed_data = json.loads(extracted_data)
+    except json.JSONDecodeError as e:
+        print("Error parsing extracted data:", e)
+        parsed_data = None
+
+    if parsed_data:
+        # Specify the output JSON file path
+        output_path = r'result.json'
+        
+        # Save the extracted data to a JSON file
+        save_to_json(parsed_data, output_path)
+        print(f"Extracted data saved to {output_path}")
+    else:
+        print("Extraction failed or returned invalid JSON.")
